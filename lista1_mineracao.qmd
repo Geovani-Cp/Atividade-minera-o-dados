@@ -1,0 +1,456 @@
+---
+title: "Mineração de Dados — Lista de Exercícios 1"
+subtitle: "Bacharelado em Estatística · UFMT"
+author: "Geovani Carvalho Pereira "
+date: today
+date-format: "DD/MM/YYYY"
+lang: pt-BR
+format:
+  typst:
+    toc: true
+    toc-title: "Sumário"
+    number-sections: true
+    papersize: a4
+    margin:
+      x: 2.5cm
+      y: 2.5cm
+    fontsize: 11pt
+    mainfont: "Libertinus Serif"
+    fig-width: 6.5
+    fig-height: 3.8
+    fig-dpi: 200
+execute:
+  echo: true
+  warning: false
+  message: false
+  cache: false
+---
+
+```{r}
+#| label: setup
+#| echo: false
+
+library(tidyverse)   # dplyr, ggplot2, readr, tidyr, lubridate...
+library(janitor)     # clean_names(), tabyl()
+library(knitr)       # kable()
+library(scales)
+
+# Tema padrão para todos os gráficos
+theme_set(theme_minimal(base_size = 11) +
+            theme(plot.title = element_text(face = "bold"),
+                  panel.grid.minor = element_blank()))
+
+# Paleta consistente
+cor_principal <- "#1F4E79"
+cor_destaque  <- "#C0392B"
+
+# Tabelas padronizadas
+tab <- function(x, cap = NULL, ...) kable(x, caption = cap, booktabs = TRUE, ...)
+```
+
+# Parte teórica
+
+## Questão 1.1 {#sec-q11}
+
+**a) O que é mineração de dados?**
+
+*(escreva com suas palavras)*
+
+**b) Relação com Estatística, Aprendizado de Máquina e Bancos de Dados**
+
+**c) Etapas do processo de descoberta de conhecimento (KDD)**
+
+**d) Por que não é apenas aplicar um algoritmo?**
+
+## Questão 1.2
+
+## Questão 1.3
+
+## Questão 1.4
+
+## Questão 1.5
+
+## Questão 1.6
+
+## Questão 1.7
+
+## Questão 1.8
+
+# Questão 1.9 — Acidentes em rodovias federais (PRF, 2025)
+
+## a) Inspeção inicial
+
+```{r}
+#| label: prf-leitura
+
+# AJUSTE o caminho e a função de leitura (read_csv2 / read_delim / readRDS)
+prf <- read_delim("dados/PRFocorrencias.csv",
+                  delim = ";",
+                  locale = locale(decimal_mark = ",", encoding = "Latin1")) |>
+  clean_names()
+
+dim(prf)
+glimpse(prf)
+```
+
+## b) Filtro: Mato Grosso
+
+```{r}
+#| label: prf-mt
+
+# CONFIRME os nomes das colunas no Dicionário de Dados
+prf_mt <- prf |> filter(uf == "MT")
+nrow(prf_mt)
+```
+
+## c) Totais gerais
+
+```{r}
+#| label: prf-totais
+
+prf_mt |>
+  summarise(acidentes   = n(),
+            pessoas     = sum(pessoas, na.rm = TRUE),
+            feridos_lev = sum(feridos_leves, na.rm = TRUE),
+            feridos_gra = sum(feridos_graves, na.rm = TRUE),
+            mortos      = sum(mortos, na.rm = TRUE),
+            veiculos    = sum(veiculos, na.rm = TRUE)) |>
+  tab("Totais de acidentes em MT, 2025")
+```
+
+## d) Por município
+
+```{r}
+#| label: prf-municipio
+
+prf_mun <- prf_mt |>
+  group_by(municipio) |>
+  summarise(acidentes = n(),
+            feridos   = sum(feridos, na.rm = TRUE),
+            mortos    = sum(mortos, na.rm = TRUE),
+            .groups = "drop") |>
+  arrange(desc(acidentes))
+
+prf_mun |> slice_head(n = 10) |> tab("Top 10 municípios por acidentes")
+```
+
+## e) Distribuições (dia da semana, fase do dia, classificação)
+
+```{r}
+#| label: prf-freq
+
+freq <- function(df, var) {
+  df |>
+    count({{ var }}, name = "n") |>
+    mutate(fr = n / sum(n)) |>
+    arrange(desc(n)) |>
+    mutate(fr = percent(fr, accuracy = 0.1))
+}
+
+freq(prf_mt, dia_semana)             |> tab("Dia da semana")
+freq(prf_mt, fase_dia)               |> tab("Fase do dia")
+freq(prf_mt, classificacao_acidente) |> tab("Classificação do acidente")
+```
+
+## f) Causas
+
+```{r}
+#| label: prf-causas
+
+top_causas <- prf_mt |> count(causa_acidente, sort = TRUE) |> slice_head(n = 10)
+
+top_mortes <- prf_mt |>
+  group_by(causa_acidente) |>
+  summarise(mortos = sum(mortos, na.rm = TRUE), .groups = "drop") |>
+  arrange(desc(mortos)) |>
+  slice_head(n = 10)
+
+top_causas |> tab("10 causas mais frequentes")
+top_mortes |> tab("10 causas com mais mortes")
+```
+
+*Comparação:* (comente quais causas aparecem nas duas listas e quais mudam de posição)
+
+## g) Visualizações
+
+```{r}
+#| label: fig-prf-municipios
+#| fig-cap: "Top 10 municípios de MT por número de acidentes."
+
+prf_mun |>
+  slice_head(n = 10) |>
+  ggplot(aes(x = acidentes, y = fct_reorder(municipio, acidentes))) +
+  geom_col(fill = cor_principal) +
+  labs(x = "Acidentes", y = NULL)
+```
+
+*Interpretação:* ...
+
+```{r}
+#| label: fig-prf-fase
+#| fig-cap: "Acidentes por fase do dia e classificação."
+
+prf_mt |>
+  count(fase_dia, classificacao_acidente) |>
+  ggplot(aes(x = fase_dia, y = n, fill = classificacao_acidente)) +
+  geom_col(position = "dodge") +
+  scale_fill_brewer(palette = "Blues") +
+  labs(x = NULL, y = "Acidentes", fill = "Classificação")
+```
+
+*Interpretação:* ...
+
+```{r}
+#| label: fig-prf-causas-mortes
+#| fig-cap: "Causas associadas ao maior número de mortes."
+
+top_mortes |>
+  ggplot(aes(x = mortos, y = fct_reorder(causa_acidente, mortos))) +
+  geom_col(fill = cor_destaque) +
+  labs(x = "Mortos", y = NULL)
+```
+
+*Interpretação:* ...
+
+## h) Principais padrões
+
+*(síntese)*
+
+# Questão 1.10 — Voos ANAC 2025 (Cuiabá)
+
+## a) Inspeção inicial
+
+```{r}
+#| label: anac-leitura
+
+voos <- read_delim("dados/Voo_ANAC_2025.csv", delim = ";") |> clean_names()
+dim(voos)
+glimpse(voos)
+```
+
+## b) Filtro: SBCY como origem ou destino
+
+```{r}
+#| label: anac-filtro
+
+# AJUSTE os nomes: aeroporto de origem / destino (ver Dicionário)
+cba <- voos |>
+  filter(icao_aeroporto_origem == "SBCY" | icao_aeroporto_destino == "SBCY")
+```
+
+## c) Saída ou chegada
+
+```{r}
+#| label: anac-sentido
+
+cba <- cba |>
+  mutate(sentido = if_else(icao_aeroporto_origem == "SBCY", "Saída", "Chegada"))
+```
+
+## d) Mês, dia da semana e hora
+
+```{r}
+#| label: anac-datas
+
+# Use ymd_hms / dmy_hm conforme o formato das colunas
+cba <- cba |>
+  mutate(partida_prevista = ymd_hms(partida_prevista),
+         mes     = month(partida_prevista, label = TRUE, abbr = TRUE),
+         dia_sem = wday(partida_prevista, label = TRUE, abbr = FALSE),
+         hora    = hour(partida_prevista))
+```
+
+## e) Atrasos e antecipações (em minutos)
+
+```{r}
+#| label: anac-atrasos
+
+cba <- cba |>
+  mutate(dif_partida = as.numeric(difftime(partida_real,  partida_prevista, units = "mins")),
+         dif_chegada = as.numeric(difftime(chegada_real,  chegada_prevista, units = "mins")))
+# dif > 0 = atraso; dif < 0 = antecipação
+```
+
+## f) Resumos
+
+```{r}
+#| label: anac-resumos
+
+cba |> count(empresa_aerea, sort = TRUE) |> tab("Voos por empresa")
+cba |> count(mes) |> tab("Voos por mês")
+
+cba |> filter(sentido == "Chegada") |>
+  count(icao_aeroporto_origem, sort = TRUE) |> slice_head(n = 10) |>
+  tab("Principais origens (chegadas)")
+
+cba |> filter(sentido == "Saída") |>
+  count(icao_aeroporto_destino, sort = TRUE) |> slice_head(n = 10) |>
+  tab("Principais destinos (saídas)")
+
+cba |> count(situacao, sort = TRUE) |> tab("Situação do voo")
+
+cba |>
+  summarise(across(c(dif_partida, dif_chegada),
+                   list(media = ~mean(.x, na.rm = TRUE),
+                        mediana = ~median(.x, na.rm = TRUE),
+                        dp = ~sd(.x, na.rm = TRUE),
+                        min = ~min(.x, na.rm = TRUE),
+                        max = ~max(.x, na.rm = TRUE)))) |>
+  pivot_longer(everything()) |>
+  tab("Medidas-resumo das diferenças (min)")
+```
+
+## g) Variação por empresa e mês
+
+```{r}
+#| label: anac-comparacao
+
+cba |>
+  group_by(empresa_aerea) |>
+  summarise(n = n(), media = mean(dif_partida, na.rm = TRUE),
+            mediana = median(dif_partida, na.rm = TRUE),
+            dp = sd(dif_partida, na.rm = TRUE)) |>
+  tab("Atraso na partida por empresa")
+
+cba |>
+  group_by(mes) |>
+  summarise(n = n(), media = mean(dif_partida, na.rm = TRUE),
+            mediana = median(dif_partida, na.rm = TRUE),
+            dp = sd(dif_partida, na.rm = TRUE)) |>
+  tab("Atraso na partida por mês")
+```
+
+## h) Visualizações
+
+```{r}
+#| label: fig-anac-box
+#| fig-cap: "Distribuição do atraso na partida por empresa."
+
+cba |>
+  filter(between(dif_partida, -60, 180)) |>
+  ggplot(aes(x = empresa_aerea, y = dif_partida)) +
+  geom_boxplot(fill = cor_principal, alpha = .6, outlier.alpha = .2) +
+  labs(x = NULL, y = "Diferença (min)")
+```
+
+*Interpretação:* ...
+
+# Questão 1.11 — Covid e estrutura de saúde
+
+## a) Seleção de MT, GO e MS
+
+```{r}
+#| label: covid-leitura
+
+covid <- read_delim("dados/Covid.csv", delim = ";") |> clean_names()
+covid_co <- covid |> filter(uf %in% c("MT", "GO", "MS"))
+```
+
+## b) Variáveis temporais x estruturais
+
+```{r}
+#| label: covid-tipos
+
+# Estrutural = valor único por município; temporal = varia entre semanas
+covid_co |>
+  group_by(codigo_municipio) |>
+  summarise(across(everything(), n_distinct)) |>
+  summarise(across(-codigo_municipio, max)) |>
+  pivot_longer(everything(), names_to = "variavel", values_to = "max_valores_distintos") |>
+  mutate(tipo = if_else(max_valores_distintos == 1, "Estrutural", "Temporal")) |>
+  tab("Classificação das variáveis")
+```
+
+## c) Base com uma linha por município
+
+```{r}
+#| label: covid-municipios
+
+# AJUSTE: liste as colunas estruturais (leitos, UTI, respiradores, etc.)
+mun <- covid_co |>
+  distinct(codigo_municipio, uf, municipio, .keep_all = TRUE) |>
+  select(codigo_municipio, uf, municipio, starts_with("leitos"), starts_with("uti"))
+```
+
+## d) Variabilidade
+
+```{r}
+#| label: covid-variancia
+
+indic <- mun |> select(where(is.numeric), -codigo_municipio)
+
+indic |>
+  summarise(across(everything(), ~var(.x, na.rm = TRUE))) |>
+  pivot_longer(everything(), names_to = "variavel", values_to = "variancia") |>
+  arrange(variancia) |>
+  tab("Variância dos indicadores")
+```
+
+## e) Correlações
+
+```{r}
+#| label: fig-covid-cor
+#| fig-cap: "Matriz de correlação dos indicadores."
+
+cor_mat <- cor(indic, use = "pairwise.complete.obs")
+cor_mat |>
+  as_tibble(rownames = "x") |>
+  pivot_longer(-x, names_to = "y", values_to = "r") |>
+  ggplot(aes(x, y, fill = r)) +
+  geom_tile() +
+  scale_fill_gradient2(low = cor_destaque, mid = "white", high = cor_principal,
+                       limits = c(-1, 1)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = NULL, y = NULL, fill = "r")
+```
+
+## f) PCA
+
+```{r}
+#| label: covid-pca
+
+# Remova variáveis com variância nula antes de padronizar
+indic_ok <- indic |> select(where(~var(.x, na.rm = TRUE) > 0)) |> drop_na()
+
+pca <- prcomp(indic_ok, center = TRUE, scale. = TRUE)
+summary(pca)
+```
+
+```{r}
+#| label: fig-covid-scree
+#| fig-cap: "Scree plot."
+
+tibble(pc = seq_along(pca$sdev), var_exp = pca$sdev^2 / sum(pca$sdev^2)) |>
+  ggplot(aes(pc, var_exp)) +
+  geom_col(fill = cor_principal) +
+  geom_line() + geom_point() +
+  scale_y_continuous(labels = percent) +
+  labs(x = "Componente", y = "Variância explicada")
+```
+
+```{r}
+#| label: covid-cargas
+
+pca$rotation[, 1:3] |> round(3) |> as_tibble(rownames = "variavel") |>
+  tab("Cargas dos três primeiros componentes")
+```
+
+*Critério de retenção:* (Kaiser: autovalor > 1; variância acumulada; scree plot)
+
+## g) Comparação MT, GO e MS
+
+```{r}
+#| label: fig-covid-pca
+#| fig-cap: "Municípios no plano dos dois primeiros componentes."
+
+escores <- as_tibble(pca$x[, 1:2]) |>
+  bind_cols(mun |> drop_na(any_of(names(indic_ok))) |> select(uf))
+
+ggplot(escores, aes(PC1, PC2, color = uf)) +
+  geom_point(alpha = .6) +
+  stat_ellipse(level = .8) +
+  scale_color_manual(values = c(MT = cor_principal, GO = cor_destaque, MS = "#27AE60")) +
+  labs(color = "UF")
+```
+
+*Interpretação:* ...
