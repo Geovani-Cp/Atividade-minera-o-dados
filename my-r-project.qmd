@@ -398,8 +398,7 @@ top10_mortes
 ```
 
 ```{r}
-#| fig-width: 8
-#| fig-heigth: 10
+
 ggplot(top10_frequentes, aes(x = n, y = reorder(causa_acidente, n)))+
     geom_col(fill = 'steelblue') +
     coord_flip() +
