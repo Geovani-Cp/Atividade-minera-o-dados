@@ -398,12 +398,148 @@ top10_mortes
 ```
 
 ```{r}
-
 ggplot(top10_frequentes, aes(x = n, y = reorder(causa_acidente, n)))+
     geom_col(fill = 'steelblue') +
     coord_flip() +
     labs(title = 'Top 10 Causas Mais frequentes de Acidentes em MT',
     x = "Quantidade de Acidentes", y = "Causa do acidente") +
         theme(axis.text = element_text(angle = 45, hjust = 1))
-    
+```
+
+```{r}
+ggplot(freq_dia, aes(x = dia_semana, y = reorder(freq_relativa, n), fill = dia_semana)) +
+  geom_col() +
+  labs(title = "Frequencia de acidentes na semana", 
+  x = "dia da semana", y = "frequencia relativa de acidentes") +
+    theme(legend.position = "none")
+```
+
+```{r}
+#| include: false
+prf_mt
+```
+
+```{r}
+#| include: false
+library(geobr)
+library(ggplot2)
+library(sf)
+library(dplyr)
+```
+
+```{r}
+#| include: false
+mt <- read_municipality(
+  code_muni = "MT",
+  year = 2025
+)
+```
+
+
+```{r}
+#| include: false
+library(stringr)
+library(stringi)
+
+```
+
+```{r}
+#| include: false
+padronizar_nome <- function(nome) {
+  nome |>
+    str_to_lower() |>
+    stri_trans_general("Latin-ASCII") |>
+    str_replace_all("[[:punct:]]", " ") |>
+    str_squish()
+}
+```
+
+```{r}
+#| include: false
+prf_mt <- prf_mt |>
+  mutate(municipio = padronizar_nome(municipio))
+
+mt <- mt |>
+  mutate(municipio = padronizar_nome(name_muni))
+
+prf_mt <- prf_mt |>
+  mutate(
+    municipio = if_else(
+      municipio =="poxoreo",
+      "poxoreu",
+      municipio
+    )
+  )
+```
+
+```{r}
+#| include: false
+library(dplyr)
+
+prf_mt <- prf_mt |>
+  mutate(
+    municipio = recode(
+      municipio,
+      "santo antonio do leverger" = "santo antonio de leverger",
+      "mirassol doeste" = "mirassol d oeste",
+      "gloria doeste" = "gloria d oeste",
+      "conquista doeste" = "conquista d oeste",
+      "figueiropolis doeste" = "figueiropolis d oeste"
+    )
+  )
+```
+
+```{r}
+#| include: false
+intersect(mt$municipio, prf_mt$municipio)
+```
+
+```{r}
+#| include: false
+setdiff(prf_mt$municipio, mt$municipio)
+```
+
+
+```{r}
+#| include: false
+unique(mt$municipio)
+```
+
+```{r}
+#| include: false
+unique(prf_mt$municipio)
+```
+
+```{r}
+#| include: false
+
+prf_resumo <- prf_mt |>
+  count(municipio, name = "total_acidentes")
+
+mt_unico <- mt |>
+  distinct(code_muni, .keep_all = TRUE)
+
+mapa_prf <- mt_unico |>
+  left_join(prf_resumo, by = "municipio")
+
+view(mapa_prf)
+```
+
+```{r}
+ggplot(mapa_prf) +
+  geom_sf(aes(fill = total_acidentes), color = "white") +
+  scale_fill_viridis_c(
+    name = "Acidentes",
+    na.value = "grey90"
+  ) +
+  labs(
+    title = "Acidentes por município",
+    subtitle = "Mato Grosso",
+    caption = "Fonte: dados da PRF"
+  )
+```
+
+```{r}
+prf_resumo |>
+  arrange(desc(total_acidentes))
 ```
