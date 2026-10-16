@@ -315,6 +315,10 @@ library(tidyverse)   # dplyr, ggplot2, readr, tidyr, lubridate...
 library(janitor)     # clean_names(), tabyl()
 library(knitr)       # kable()
 library(scales)
+library(geobr)
+library(sf)
+library(stringr)
+library(stringi)
 
 theme_set(theme_classic(base_size = 11) +
             theme(plot.title = element_text(face = "bold"),
@@ -391,19 +395,29 @@ top10_mortes <- prf_mt |>
     head(10)
 
 top10_mortes
-
-
-
-
 ```
 
+
+
 ```{r}
-ggplot(top10_frequentes, aes(x = n, y = reorder(causa_acidente, n)))+
-    geom_col(fill = 'steelblue') +
-    coord_flip() +
-    labs(title = 'Top 10 Causas Mais frequentes de Acidentes em MT',
-    x = "Quantidade de Acidentes", y = "Causa do acidente") +
-        theme(axis.text = element_text(angle = 45, hjust = 1))
+#| label: prf-serie-mensal
+# Serie temporal: acidentes por mes (jan-dez 2021)
+
+# nomes de mes em portugues (independe do locale do sistema)
+meses_pt <- c("Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+              "Jul", "Ago", "Set", "Out", "Nov", "Dez")
+
+prf_mt |>
+  mutate(mes = floor_date(dmy(data_inversa), unit = "month")) |>
+  count(mes) |>
+  ggplot(aes(x = mes, y = n)) +
+  geom_line(color = "steelblue", linewidth = 1) +
+  geom_point(color = "steelblue", size = 2.5) +
+  geom_text(aes(label = n), vjust = -0.8, size = 3) +
+  scale_x_date(date_breaks = "1 month",
+               labels = function(d) meses_pt[month(d)]) +
+  labs(title = "Acidentes por mes em MT (2021)",
+       x = "Mês", y = "Quantidade de acidentes")
 ```
 
 ```{r}
@@ -419,29 +433,17 @@ ggplot(freq_dia, aes(x = dia_semana, y = reorder(freq_relativa, n), fill = dia_s
 prf_mt
 ```
 
-```{r}
-#| include: false
-library(geobr)
-library(ggplot2)
-library(sf)
-library(dplyr)
-```
 
 ```{r}
 #| include: false
 mt <- read_municipality(
   code_muni = "MT",
-  year = 2025
+  year = 2021
 )
 ```
 
 
-```{r}
-#| include: false
-library(stringr)
-library(stringi)
 
-```
 
 ```{r}
 #| include: false
@@ -539,7 +541,10 @@ ggplot(mapa_prf) +
   )
 ```
 
-```{r}
-prf_resumo |>
-  arrange(desc(total_acidentes))
-```
+Em 2021, Mato Grosso registrou 2.140 acidentes nas rodovias federais, com 5.731 pessoas envolvidas, 5.135 veículos, 582 feridos graves e 223 mortos. A maior parte dos acidentes teve vítimas: 71,9% com feridos e 8,55% com vítimas fatais, enquanto apenas 19,5% não tiveram vítimas.
+
+Os acidentes se concentram nos fins de semana: sábado (17,4%) e domingo (16,9%) lideram, enquanto os demais dias ficam entre 12,3% e 13,9%. Quanto ao período, 56,1% ocorreram em pleno dia e 32,2% à noite, sendo o amanhecer (4,49%) e o anoitecer (7,24%) os de menor frequência.
+
+Entre as causas, as mais frequentes são falhas de atenção e reação do condutor: reação tardia ou ineficiente (252 casos), acesso à via sem observar outros veículos (168) e ausência de reação (162). Já as causas associadas a mais mortes são outras: transitar na contramão (41 mortes) e ultrapassagem indevida (28) aparecem no topo, apesar de menos frequentes, o que indica maior gravidade desses comportamentos. A ingestão de álcool (138 casos) e a velocidade incompatível (146) também estão entre as principais causas.
+
+Espacialmente, os acidentes se concentram em poucos municípios, com destaque para alguns que passam de 150 ocorrências, enquanto grande parte do estado apresenta poucos registros.
